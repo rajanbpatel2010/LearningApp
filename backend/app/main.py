@@ -1,8 +1,33 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.auth import Token, User, authenticate_user, create_access_token, require_role
+from app.routers.coaching import router as coaching_router
+from app.routers.knowledge import router as knowledge_router
+from app.routers.orchestration import router as orchestration_router
+from app.routers.questions import router as question_router
 
 app = FastAPI(title="Learning Coach API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(question_router)
+app.include_router(knowledge_router)
+app.include_router(orchestration_router)
+app.include_router(coaching_router)
+
+
+@app.get("/")
+def serve_frontend() -> FileResponse:
+    frontend_path = Path(__file__).resolve().parents[1] / ".." / "frontend" / "index.html"
+    return FileResponse(frontend_path)
 
 
 @app.get("/health")

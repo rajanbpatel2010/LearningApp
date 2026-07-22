@@ -1,4 +1,9 @@
+import os
+
 from fastapi.testclient import TestClient
+
+os.environ["QUESTION_BANK_DB_PATH"] = ":memory:"
+os.environ["RAG_DB_PATH"] = ":memory:"
 
 from app.main import app
 

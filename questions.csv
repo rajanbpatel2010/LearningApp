@@ -1,0 +1,3 @@
+category,topic,difficulty,question_text,expected_answer,keywords
+Python,Decorators,medium,What is a decorator in Python?,"A decorator is a function that takes another function as an argument, extends its behavior, and returns a new function without modifying the original function.","decorator,function,wrapper"
+Databases,Indexes,hard,How does a B-Tree index speed up queries?,"A B-Tree index organizes keys in a balanced tree structure, enabling binary-search-like retrieval with logarithmic time complexity O(log N) instead of linear full table scans O(N).","btree,index,search,logarithmic"
