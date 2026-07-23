@@ -1003,6 +1003,24 @@
       let jwtToken = '';
       const API_BASE = 'http://127.0.0.1:8000';
 
+      // Central handler for 401 Unauthorized — shows login screen with a clear message
+      function handleUnauthorized() {
+        jwtToken = '';
+        localStorage.removeItem('learning_jwt');
+        const screen = document.getElementById('loginScreen');
+        screen.style.display = 'flex';
+        // Show a prominent banner inside the login card
+        const existing = document.getElementById('sessionExpiredMsg');
+        if (!existing) {
+          const card = screen.querySelector('.login-card');
+          const msg = document.createElement('div');
+          msg.id = 'sessionExpiredMsg';
+          msg.style.cssText = 'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1.25rem;font-size:0.9rem;';
+          msg.textContent = '⚠ Your session has expired or you are not signed in. Please sign in to continue.';
+          card.insertBefore(msg, card.firstChild);
+        }
+      }
+
       // Navigation routing
       function switchView(viewId, element) {
         document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden'));
@@ -1130,6 +1148,7 @@
             body: JSON.stringify({ request: queryText })
           });
 
+          if (res.status === 401) { handleUnauthorized(); return; }
           if (!res.ok) throw new Error(res.statusText);
           const data = await res.json();
 
@@ -1189,6 +1208,7 @@
             body: JSON.stringify({ question_id: q.id, user_answer: userAnswer })
           });
 
+          if (res.status === 401) { handleUnauthorized(); return; }
           if (!res.ok) throw new Error(await res.text());
           const result = await res.json();
 
@@ -1688,15 +1708,36 @@
           .replace(/'/g, "&#039;");
       }
 
-      // Check existing token
-      window.onload = function() {
+      // On load: validate stored token against the server.
+      // If the server isn't up yet, we leave the token in localStorage and
+      // keep the login screen visible — the user can sign in once it's ready.
+      window.onload = async function() {
         const storedToken = localStorage.getItem('learning_jwt');
-        if(storedToken) {
-          jwtToken = storedToken;
-          document.getElementById('loginScreen').style.display = 'none';
-          document.getElementById('userDisplayName').textContent = 'demo';
-          document.getElementById('userRole').textContent = 'admin';
-          refreshGlobalStats();
+        if (!storedToken) return; // No token → login screen stays visible (default)
+
+        try {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { 'Authorization': 'Bearer ' + storedToken }
+          });
+          if (res.ok) {
+            // Token is valid — restore session
+            const user = await res.json();
+            jwtToken = storedToken;
+            // Remove any stale session-expired banner
+            const msg = document.getElementById('sessionExpiredMsg');
+            if (msg) msg.remove();
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('userDisplayName').textContent = user.username || 'demo';
+            document.getElementById('userRole').textContent = user.role || 'learner';
+            refreshGlobalStats();
+          } else {
+            // Token is expired or invalid — show login with a clear message
+            handleUnauthorized();
+          }
+        } catch (e) {
+          // Server not reachable (still booting) — leave token intact,
+          // login screen stays visible. User can sign in when server is ready.
+          console.warn('Server not reachable on load, showing login screen.');
         }
       };
     </script>

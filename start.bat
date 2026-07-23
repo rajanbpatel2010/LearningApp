@@ -11,6 +11,7 @@ set "ROOT=%~dp0"
 set "BACKEND=%ROOT%backend"
 set "VENV=%ROOT%.venv"
 set "PYTHON=%VENV%\Scripts\python.exe"
+set "PORT=8000"
 
 echo.
 echo  ================================================
@@ -41,21 +42,43 @@ if %errorlevel% neq 0 (
 )
 echo        OK
 
-:: ── Detect free port (default 8000) ───────────────────────
-set PORT=8000
-echo [2/3] Starting server on port %PORT%...
+:: ── Kill any existing process on the port ─────────────────
+echo [2/3] Checking port %PORT%...
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":%PORT% " ^| findstr "LISTENING"') do (
+    echo        Port %PORT% is in use by PID %%a, releasing it...
+    taskkill /PID %%a /F >nul 2>&1
+    timeout /t 1 /nobreak >nul
+)
+echo        Port %PORT% is ready. Starting server...
 echo        URL: http://127.0.0.1:%PORT%
 echo.
 
-:: ── Open browser after 2 second delay ─────────────────────
-echo [3/3] Opening browser in 2 seconds...
-start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:%PORT%"
+:: ── Verify uvicorn is importable before launching ──────────
+"%PYTHON%" -c "import uvicorn" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] uvicorn is not installed in the virtual environment.
+    echo  Run: .venv\Scripts\pip install uvicorn
+    pause
+    exit /b 1
+)
+
+:: ── Open browser after 3 second delay ─────────────────────
+echo [3/3] Opening browser in 3 seconds...
+start "" cmd /c "timeout /t 3 /nobreak >nul && start http://127.0.0.1:%PORT%"
 
 :: ── Launch uvicorn from the backend directory ─────────────
 cd /d "%BACKEND%"
 echo.
 echo  Press Ctrl+C to stop the server.
 echo  ────────────────────────────────────────────────
-"%VENV%\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port %PORT% --reload
+"%PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port %PORT% --reload
+
+:: Uvicorn exits with non-zero when stopped via Ctrl+C (normal).
+:: Only pause and show error if it exits unexpectedly fast.
+if %errorlevel% GTR 1 (
+    echo.
+    echo [ERROR] Server exited unexpectedly (code %errorlevel%). Check the output above.
+    pause
+)
 
 endlocal
